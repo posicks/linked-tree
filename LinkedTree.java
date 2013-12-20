@@ -1,5 +1,7 @@
 package net.posick;
 
+import java.util.List;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -11,17 +13,35 @@ import javax.xml.bind.annotation.XmlType;
 @XmlAccessorType(XmlAccessType.NONE)
 public class LinkedTree<V> extends AbstractTree<LinkedTree<V>, V>
 {
-    private static final long serialVersionUID = -5911418043977126488L;
+    private static final long serialVersionUID = -4969044733002136970L;
     
     @XmlElement(name="Value")
     private V value;
-
+    
     public LinkedTree()
     {
-        // TODO Auto-generated constructor stub
+        super();
     }
     
-
+    
+    public LinkedTree(V value)
+    {
+        super(value);
+    }
+    
+    
+    public LinkedTree(LinkedTree<V> parent, V value)
+    {
+        super(parent, value);
+    }
+    
+    
+    public LinkedTree(List<V> ancestors, V value)
+    {
+        super(ancestors, value);
+    }
+    
+    
     @Override
     public V getValue()
     {
