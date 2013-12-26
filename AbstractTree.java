@@ -1,4 +1,4 @@
-package net.posick;
+package net.posick.tree;
 
 import java.io.Serializable;
 import java.io.StringReader;
@@ -8,7 +8,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.AbstractList;
 import java.util.List;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.Stack;
 
 import javax.xml.bind.JAXBContext;
@@ -32,223 +31,25 @@ import javax.xml.bind.annotation.XmlType;
 @XmlRootElement(name = "AbstractTree")
 @XmlType(name="AbstractTree", propOrder = {"children"})
 @XmlAccessorType(XmlAccessType.NONE)
-public abstract class AbstractTree<T extends AbstractTree, V> implements Serializable, Cloneable
+public abstract class AbstractTree<T extends AbstractTree<T, V>, V> implements Serializable, Cloneable, Tree<T, V>
 {
     private static final long serialVersionUID = 200802251417L;
-    
-    
-    /**
-     * <code>PARENT</code> node indicator.
-     */
-    public static final int PARENT = 0;
-    
-    /**
-     * <code>CHILD</code> node indicator.
-     */
-    public static final int CHILD = 1;
-    
-    /**
-     * <code>LASTCHILD</code> node indicator.
-     */
-    public static final int LASTCHILD = 2;
-    
-    /**
-     * <code>NEXT</code> node indicator.
-     */
-    public static final int NEXT = 3;
-    
-    /**
-     * <code>PREVIOUS</code> node indicator.
-     */
-    public static final int PREVIOUS = 4;
-    
-    /**
-     * <code>LAST</code> node indicator.
-     */
-    public static final int LAST = 5;
-    
-    
-    /**
-     * The Tree defines the behavior for a Tree traversal action.
-     * 
-     * @author Steve Posick
-     * @see Tree
-     */
-    public static interface TraverseAction<T extends AbstractTree>
-    {
-        /**
-         * The action code that tells the Tree traverser to continue with
-         * the traversal of the Tree as normal.
-         */
-        public static final int CONTINUE = 0;
-        
-        /**
-         * The action code that tells the Tree traverser to stop the
-         * traversal of the Tree.
-         */
-        public static final int STOP_TREE = 1;
-        
-        /**
-         * The action code that tells the Tree traverser to stop the
-         * traversal of the current branch and move onto the next.
-         */
-        public static final int STOP_BRANCH = 2;
-        
-        
-        /**
-         * Fired for each Tree during traversal. Allows programmatic
-         * control of the traversal as will as providing a simple means to
-         * perform some function on the tree's data.
-         * 
-         * @see Tree
-         * @param node
-         * @param level
-         * @return The Action code.
-         */
-        public int action(T node, int level);
-    }
-    
-
-    protected static class TreeIterator<T extends AbstractTree> implements Iterator
-    {
-        private Stack<AbstractTree> stack = new Stack<AbstractTree>();
-        
-        private boolean recursive;
-        
-        private boolean siblings;
-        
-        private AbstractTree currentNode;
-        
-        private AbstractTree ignoreNode;
-        
-        
-        public TreeIterator(T node, boolean recursive, boolean siblings, T ignore)
-        {
-            currentNode = node;
-            this.recursive = recursive;
-            this.siblings = siblings;
-            this.ignoreNode = ignore;
-        }
-        
-
-        /**
-         * @see java.util.Iterator#remove()
-         */
-        public void remove()
-        {
-            AbstractTree.remove(currentNode);
-        }
-        
-
-        /**
-         * @see java.util.Iterator#hasNext()
-         */
-        public boolean hasNext()
-        {
-            if (currentNode != null)
-            {
-                if (currentNode == ignoreNode)
-                {
-                    currentNode = currentNode.getNextSibling();
-                }
-                
-                return currentNode != null;
-            } else
-            {
-                return false;
-            }
-        }
-        
-
-        /**
-         * @see java.util.Iterator#next()
-         */
-        public T next()
-        {
-            AbstractTree temp = null;
-            
-            if (currentNode != null)
-            {
-                temp = currentNode;
-                
-                if (recursive)
-                {
-                    if (currentNode.getFirstChild() != null)
-                    {
-                        stack.push(currentNode);
-                        currentNode = currentNode.getFirstChild();
-                    } else if (currentNode.getNextSibling() != null)
-                    {
-                        if (stack.size() > 0)
-                        {
-                            currentNode = currentNode.getNextSibling();
-                        } else
-                        {
-                            if (siblings)
-                            {
-                                currentNode = currentNode.getNextSibling();
-                            } else
-                            {
-                                currentNode = null;
-                            }
-                        }
-                    } else
-                    {
-                        currentNode = null;
-                        
-                        while (stack.size() > 0 && currentNode == null)
-                        {
-                            currentNode = stack.pop();
-                            
-                            if (stack.size() > 0)
-                            {
-                                currentNode = currentNode.getNextSibling();
-                            } else
-                            {
-                                if (siblings)
-                                {
-                                    currentNode = currentNode.getNextSibling();
-                                } else
-                                {
-                                    currentNode = null;
-                                }
-                            }
-                        }
-                    }
-                } else
-                {
-                    currentNode = currentNode.getNextSibling();
-                }
-                
-                // If we are supposed to ignore this node get next node.
-                if (temp == ignoreNode)
-                {
-                    temp = next();
-                }
-            } else
-            {
-                throw new NoSuchElementException();
-            }
-            
-            return (T) temp;
-        }
-    }
     
 
     protected class TreeList extends AbstractList<T>
     {
-        private AbstractTree firstNode;
+        private T firstNode;
         
-        private AbstractTree ignoreNode;
+        private T ignoreNode;
         
         private boolean recursive;
         
         private boolean siblings;
         
         
-        public TreeList(AbstractTree node, boolean recursive, boolean siblings, AbstractTree ignoreNode)
+        public TreeList(T node, boolean recursive, boolean siblings, T ignoreNode)
         {
-            AbstractTree firstNode;
+            T firstNode;
             
             // Find first Sibling.
             if (node != null)
@@ -410,114 +211,96 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     private T previousSibling;
     
 
-    /**
-     * Gets the parent for this node in the Tree.
-     * 
-     * @return the parent for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getParent()
      */
+    @Override
     public T getParent()
     {
         return parent;
     }
     
 
-    /**
-     * Sets the parent for this node in the Tree.
-     * 
-     * @param parent The parent for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#setParent(net.posick.Tree)
      */
     public void setParent(T parent)
     {
-        AbstractTree.add(parent, this, LASTCHILD);
+        this.parent = parent;
     }
     
 
-    /**
-     * Gets the first child for this node in the Tree.
-     * 
-     * @return the the first child for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getFirstChild()
      */
+    @Override
     public T getFirstChild()
     {
         return child;
     }
     
 
-    /**
-     * Sets the first child for this node in the Tree.
-     * 
-     * @param child The first child for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#setFirstChild(net.posick.Tree)
      */
     public void setFirstChild(T child)
     {
-        AbstractTree.add(this, child, CHILD);
+        this.child = child;
     }
     
 
-    /**
-     * Gets the next sibling for this node in the Tree.
-     * 
-     * @return The next sibling for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getNextSibling()
      */
+    @Override
     public T getNextSibling()
     {
         return nextSibling;
     }
     
 
-    /**
-     * Sets the next sibling for this node in the Tree.
-     * 
-     * @param nextSibling The next sibling for this node in the Tree.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#setNextSibling(net.posick.Tree)
      */
     public void setNextSibling(T nextSibling)
     {
-        AbstractTree.add(nextSibling, this, PREVIOUS);
+        this.nextSibling = nextSibling;
     }
     
 
-    /**
-     * Gets the previous sibling for this node in the Tree.
-     * 
-     * @return The previous sibling for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getPreviousSibling()
      */
+    @Override
     public T getPreviousSibling()
     {
         return nextSibling;
     }
     
 
-    /**
-     * Sets the previous sibling for this node in the Tree.
-     * 
-     * @param previousSibling The previous sibling for this node in the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#setPreviousSibling(net.posick.Tree)
      */
     public void setPreviousSibling(T previousSibling)
     {
-        AbstractTree.add(previousSibling, this, NEXT);
+        this.previousSibling = previousSibling;
     }
     
     
-    /**
-     * Adds a new node to the tree using this node as a reference point.
-     * 
-     * @param newNode The new node to add
-     * @param mode The node indicator, how the node will be added
-     * @return The node that was added to the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#add(T, int)
      */
+    @Override
     public T add(T newNode, int mode)
     {
         return (T) add(this, newNode, mode);
     }
     
     
-    /**
-     * Adds a new node to the tree using this node as a reference point.
-     * 
-     * @param value The value for the new node
-     * @param mode The node indicator, how the node will be added
-     * @return The node that was added to the Tree
+    /* (non-Javadoc)
+     * @see net.posick.Tree#add(V, int)
      */
+    @Override
     public T add(V value, int mode)
     {
         return (T) add(this, newInstance((Class<? extends AbstractTree>) getClass(), value), mode);
@@ -552,12 +335,10 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     }
     
 
-    /**
-     * Gets the first child that has this value.
-     * 
-     * @param value The value
-     * @return The first child that has this value or null.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getChild(V)
      */
+    @Override
     public T getChild(V value)
     {
         if (value != null)
@@ -575,12 +356,10 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     }
     
 
-    /**
-     * Gets the first sibling that has this value.
-     * 
-     * @param value The value
-     * @return The first sibling that has this value or null.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getSibling(V)
      */
+    @Override
     public T getSibling(V value)
     {
         if (value != null)
@@ -638,53 +417,50 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     }
     
 
-    /**
-     * Replaces this node with the specified node.
-     * 
-     * @param newNode The node to replace this node with.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#replace(net.posick.AbstractTree)
      */
-    public void replace(AbstractTree newNode)
+    @Override
+    public void replace(T newNode)
     {
         replace(this, newNode);
     }
     
 
-    /**
-     * Deletes this node from the tree.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#remove()
      */
+    @Override
     public void remove()
     {
         remove(this);
     }
     
 
-    /**
-     * Tests if this node has children.
-     * 
-     * @return True if this node has children
+    /* (non-Javadoc)
+     * @see net.posick.Tree#hasChildren()
      */
+    @Override
     public boolean hasChildren()
     {
         return child == null ? false : true;
     }
     
     
-    /**
-     * Returns an Iterator of all the children of this node, recursively.
-     * 
-     * @return The iterator of children.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getDescendants()
      */
+    @Override
     public List<T> getDescendants()
     {
         return new TreeList(child, true, true, null);
     }
     
 
-    /**
-     * Returns an Iterator of all the direct children of this node.
-     * 
-     * @return The iterator of children.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getChildren()
      */
+    @Override
     public List<T> getChildren()
     {
         return new TreeList(child, false, true, null);
@@ -701,34 +477,39 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     {
         for (T node : children)
         {
-            AbstractTree.add(this, node, LASTCHILD);
+            this.add(node, LASTCHILD);
         }
     }
     
 
-    /**
-     * Returns an Iterator of this nodes siblings. Includes this node in the
-     * Iterator.
-     * 
-     * @return The iterator of siblings.
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getSiblings()
      */
+    @Override
     public List<T> getSiblings()
     {
-        return new TreeList(this, false, true, this);
+        return new TreeList((T) this, false, true, (T) this);
     }
     
     
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getValue()
+     */
+    @Override
     public abstract V getValue();
     
 
+    /* (non-Javadoc)
+     * @see net.posick.Tree#setValue(V)
+     */
+    @Override
     public abstract void setValue(V value);
     
 
-    /**
-     * Returns the root most node of the tree.
-     * 
-     * @return
+    /* (non-Javadoc)
+     * @see net.posick.Tree#getRoot()
      */
+    @Override
     public T getRoot()
     {
         return (T) getRoot(this);
@@ -742,7 +523,7 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     {
         final StringBuilder buffer = new StringBuilder();
         
-        traverse(getRoot(), new TraverseAction()
+        traverse(getRoot(), new TraverseAction<T, V>()
         {
             public int action(AbstractTree node, int level)
             {
@@ -764,9 +545,9 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
      */
     public boolean equals(Object object)
     {
-        if (object instanceof AbstractTree)
+        if (object instanceof Tree)
         {
-            Object thatValue = ((AbstractTree) object).getValue();
+            Object thatValue = ((Tree) object).getValue();
             Object thisValue = getValue();
             
             return (thatValue == thisValue) || (thatValue != null && thatValue.equals(thisValue));
@@ -783,12 +564,12 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
      * @param newNode The node that is to be added.
      * @param mode The node indicator, how the node will be added
      */
-    public static <T extends AbstractTree> T add(AbstractTree refNode, T newNode, int mode)
+    public static <T extends AbstractTree> T add(AbstractTree refNode, AbstractTree newNode, int mode)
     {
         switch (mode)
         {
             case PARENT:
-                newNode.parent = refNode.parent;
+                newNode.parent = refNode.getParent();
                 newNode.child = refNode;
                 if (refNode.parent != null)
                 {
@@ -879,7 +660,7 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
                 break;
         }
         
-        return newNode;
+        return (T) newNode;
     }
     
 
@@ -933,7 +714,7 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
      * @param refNod The reference node, point of reference
      * @return The trees root node
      */
-    public static AbstractTree getRoot(AbstractTree refNod)
+    public static Tree getRoot(AbstractTree refNod)
     {
         if (refNod == null)
             return null;
@@ -945,6 +726,18 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
             currentNode = currentNode.parent;
         }
         return currentNode;
+    }
+    
+    
+    /**
+     * Traverses the tree using this node as a starting point.  The traverse action is executed for
+     * each node encountered.
+     * 
+     * @param action The action to perform for each node, flow control
+     */
+    public void traverse(TraverseAction action)
+    {
+        AbstractTree.traverse(this, action);
     }
     
 
@@ -1050,7 +843,7 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     }
     
     
-    protected static <T extends AbstractTree> T newInstance(Class<T> clazz)
+    protected static <T extends Tree> T newInstance(Class<T> clazz)
     {
         Constructor constructor;
         try
@@ -1079,7 +872,7 @@ public abstract class AbstractTree<T extends AbstractTree, V> implements Seriali
     }
     
     
-    protected static <T extends AbstractTree, V> T newInstance(Class<T> clazz, V value)
+    protected static <T extends Tree, V> T newInstance(Class<T> clazz, V value)
     {
         Constructor constructor;
         try
